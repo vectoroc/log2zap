@@ -14,7 +14,7 @@ import (
 func expr2name(expr ast.Expr) (string, bool) {
 	switch v := expr.(type) {
 	case *ast.Ident:
-		// use var name
+		// use var key
 		return v.String(), true
 
 	case *ast.CallExpr:
@@ -56,7 +56,7 @@ func formatZapVar(pass *analysis.Pass, arg ast.Expr, v formatVar) (string, error
 		types.Typ[types.String]:  "String",
 	}
 
-	name := v.name
+	name := v.key
 	method, ok := type2method[typ]
 
 	if !ok {

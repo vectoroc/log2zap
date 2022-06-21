@@ -63,22 +63,31 @@ func run(pass *analysis.Pass) (interface{}, error) {
 		lit, ok := ce.Args[0].(*ast.BasicLit)
 		if !ok {
 			raw, _ := expr2string(pass, ce.Args[0])
-			pass.ReportRangef(ce, "expected 1st arg to be format string literal, got %s", raw)
+			pass.ReportRangef(ce, "expected 1st arg to be value string literal, got %s", raw)
 			return
 		}
 
 		format := strings.Trim(lit.Value, `"`)
-		vars := parseFormat(format)
-		msg := cleanUpFormatString(format, vars)
+		vars := ParseFormat(format)
+		msg := CleanUpFormatString(format, vars)
 
 		var zapArgs []string
 		for i, arg := range ce.Args[1:] {
 			v, err := formatZapVar(pass, arg, vars[i])
 			if err != nil {
-				pass.ReportRangef(arg, "failed to format arg")
+				pass.ReportRangef(arg, "failed to value arg")
 				return
 			}
 			zapArgs = append(zapArgs, v)
+		}
+
+		staticVars := ParseStaticVars(msg)
+		if len(staticVars) > 0 {
+			msg = CleanUpFormatString(msg, staticVars)
+			for _, v := range staticVars {
+				zapArgs = append(zapArgs,
+					fmt.Sprintf(`zap.String(%s, %s)`, strconv.Quote(v.key), strconv.Quote(v.value)))
+			}
 		}
 
 		pass.Report(analysis.Diagnostic{

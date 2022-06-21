@@ -5,35 +5,47 @@ import (
 	"strings"
 )
 
-var reWithNames = regexp.MustCompile(`((?:[\w_-]+=)?\\?['"]?%[^ '"]\\?['"]?)`)
+var rePercentPlaceholders = regexp.MustCompile(`((?:[\w_-]+=)?\\?['"]?%[^ '"]+\\?['"]?)`)
+var reStaticVars = regexp.MustCompile(`([\w_-]+=\\?['"]?[\w_-]+\\?['"]?)`)
 
-func parseFormat(format string) []formatVar {
+func parse(format string, re *regexp.Regexp) []formatVar {
 	var res []formatVar
-	for _, match := range reWithNames.FindAllString(format, -1) {
+	for _, match := range re.FindAllString(format, -1) {
 		item := formatVar{raw: match}
-		item.format = match
+		item.value = match
 		parts := strings.Split(match, "=")
 		if len(parts) != 1 {
-			item.format = parts[1]
-			item.name = parts[0]
+			item.value = parts[1]
+			item.key = parts[0]
 		}
 
-		item.format = strings.Trim(item.format, ` '"\`)
+		item.value = strings.Trim(item.value, ` '"\`)
 		res = append(res, item)
 	}
 
 	return res
 }
 
-type formatVar struct {
-	raw    string
-	name   string
-	format string
+func ParseFormat(format string) []formatVar {
+	return parse(format, rePercentPlaceholders)
 }
 
-func cleanUpFormatString(format string, vars []formatVar) string {
+func ParseStaticVars(msg string) []formatVar {
+	return parse(msg, reStaticVars)
+}
+
+type formatVar struct {
+	raw   string
+	key   string
+	value string
+}
+
+func CleanUpFormatString(format string, vars []formatVar) string {
+	pairs := []string{"  ", " ", " .", ".", " ,", ","}
 	for _, v := range vars {
-		format = strings.Replace(format, v.raw, "", 1)
+		pairs = append(pairs, v.raw, "")
 	}
-	return strings.Trim(strings.ReplaceAll(format, "  ", " "), ".,: \n\t")
+	format = strings.NewReplacer(pairs...).Replace(format)
+	format = strings.NewReplacer("  ", " ", " .", ".", " ,", ",").Replace(format)
+	return strings.Trim(format, ".,: \n\t")
 }
